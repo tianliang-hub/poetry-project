@@ -123,3 +123,16 @@
   background: hsl(0 0% 25%);
   border-radius: 2px;
 }
+
+/* Ken Burns slow pan/zoom for "运镜视频" */
+@keyframes ken-burns {
+  0%   { transform: scale(1.05) translate(0%, 0%); }
+  25%  { transform: scale(1.15) translate(-2%, -1%); }
+  50%  { transform: scale(1.2) translate(1%, -2%); }
+  75%  { transform: scale(1.15) translate(2%, 1%); }
+  100% { transform: scale(1.05) translate(0%, 0%); }
+}
+.ken-burns {
+  animation: ken-burns 18s ease-in-out infinite;
+  transform-origin: center;
+}

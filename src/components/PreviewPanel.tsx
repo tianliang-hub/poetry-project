@@ -80,15 +80,12 @@ const PreviewPanel = ({
             className="flex flex-col items-center gap-6 px-8 w-full max-w-3xl"
           >
             {/* Generated media */}
-            <div className="relative w-full overflow-hidden rounded-xl ink-glass">
+            <div className={`relative w-full overflow-hidden rounded-xl ink-glass ${generatedKind === "video" ? "aspect-video bg-black/20" : ""}`}>
               {generatedKind === "video" ? (
-                <video
+                <img
                   src={generatedUrl}
-                  controls
-                  autoPlay
-                  loop
-                  playsInline
-                  className="w-full h-auto max-h-[70vh] object-contain"
+                  alt={`AI generated scene for: ${poem}`}
+                  className="absolute inset-0 w-full h-full object-cover ken-burns"
                 />
               ) : (
                 <img
