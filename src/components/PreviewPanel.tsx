@@ -1,9 +1,11 @@
 import { motion, AnimatePresence } from "framer-motion";
+import { usePoemTTS } from "@/hooks/usePoemTTS";
 import type { GenerationStyle, OutputType } from "@/pages/Index";
 
 interface PreviewPanelProps {
   isGenerating: boolean;
   generatedUrl: string | null;
+  generatedKind: "image" | "video" | null;
   poem: string;
   style: GenerationStyle;
   outputType: OutputType;
@@ -21,12 +23,20 @@ const styleLabels: Record<GenerationStyle, string> = {
 const PreviewPanel = ({
   isGenerating,
   generatedUrl,
+  generatedKind,
   poem,
   style,
   loadingText,
   onDownload,
   onRegenerate,
 }: PreviewPanelProps) => {
+  const { isSupported, isSpeaking, speak, stop } = usePoemTTS();
+
+  const handleRecite = () => {
+    if (isSpeaking) stop();
+    else speak(poem);
+  };
+
   return (
     <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-ink-surface">
       {/* Subtle grid */}
@@ -69,31 +79,54 @@ const PreviewPanel = ({
             transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
             className="flex flex-col items-center gap-6 px-8 w-full max-w-3xl"
           >
-            {/* Generated image */}
+            {/* Generated media */}
             <div className="relative w-full overflow-hidden rounded-xl ink-glass">
-              <img
-                src={generatedUrl}
-                alt={`AI generated artwork for: ${poem}`}
-                className="w-full h-auto max-h-[70vh] object-contain"
-              />
+              {generatedKind === "video" ? (
+                <video
+                  src={generatedUrl}
+                  controls
+                  autoPlay
+                  loop
+                  playsInline
+                  className="w-full h-auto max-h-[70vh] object-contain"
+                />
+              ) : (
+                <img
+                  src={generatedUrl}
+                  alt={`AI generated artwork for: ${poem}`}
+                  className="w-full h-auto max-h-[70vh] object-contain"
+                />
+              )}
             </div>
 
-            {/* Poem overlay */}
+            {/* Style label */}
             <div className="flex items-center gap-2">
               <div className="h-px w-8 bg-muted-foreground/30" />
               <span className="text-xs text-muted-foreground font-serif tracking-wider">
-                {styleLabels[style]}
+                {styleLabels[style]} · {generatedKind === "video" ? "运镜视频" : "静态画境"}
               </span>
               <div className="h-px w-8 bg-muted-foreground/30" />
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3 justify-center">
+              {isSupported && poem.trim() && (
+                <button
+                  onClick={handleRecite}
+                  className={`rounded-lg px-6 py-2.5 text-xs font-medium transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                    isSpeaking
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-foreground"
+                  }`}
+                >
+                  {isSpeaking ? "■ 停止吟诵" : "♪ 古诗吟诵"}
+                </button>
+              )}
               <button
                 onClick={onDownload}
                 className="rounded-lg bg-foreground px-6 py-2.5 text-xs font-medium text-background transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
-                导出图片
+                {generatedKind === "video" ? "导出视频" : "导出图片"}
               </button>
               <button
                 onClick={onRegenerate}
