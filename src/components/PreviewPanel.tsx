@@ -107,13 +107,14 @@ const PreviewPanel = ({
 
             {/* Actions */}
             <div className="flex flex-wrap gap-3 justify-center">
-              {isSupported && poem.trim() && (
+              {isSupported && (
                 <button
                   onClick={handleRecite}
-                  className={`rounded-lg px-6 py-2.5 text-xs font-medium transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                  disabled={!poem.trim()}
+                  className={`rounded-lg px-6 py-2.5 text-xs font-medium transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-30 disabled:hover:scale-100 ${
                     isSpeaking
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-foreground"
+                      ? "bg-primary text-primary-foreground ring-2 ring-primary/40"
+                      : "bg-foreground/10 text-foreground ring-1 ring-foreground/20 hover:bg-foreground/15"
                   }`}
                 >
                   {isSpeaking ? "■ 停止吟诵" : "♪ 古诗吟诵"}
