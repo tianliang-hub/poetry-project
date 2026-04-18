@@ -30,7 +30,7 @@ const PreviewPanel = ({
   onDownload,
   onRegenerate,
 }: PreviewPanelProps) => {
-  const { isSupported, isSpeaking, speak, stop } = usePoemTTS();
+  const { isSupported, isSpeaking, hasChineseVoice, speak, stop, refreshVoices } = usePoemTTS();
 
   const handleRecite = () => {
     if (isSpeaking) stop();
@@ -106,7 +106,24 @@ const PreviewPanel = ({
             </div>
 
             {/* Actions */}
-            <div className="flex flex-wrap gap-3 justify-center">
+            <div className="flex flex-col items-center gap-3">
+              {isSupported && (
+                <div className="flex flex-wrap items-center justify-center gap-2 text-[11px] text-muted-foreground">
+                  <span>
+                    {hasChineseVoice
+                      ? "已检测到中文音色，可直接吟诵"
+                      : "正在尝试加载中文音色；若仍无声，可点重新检测"}
+                  </span>
+                  <button
+                    onClick={() => refreshVoices()}
+                    className="rounded-md border border-border bg-secondary px-3 py-1 text-foreground transition-colors hover:bg-secondary/80"
+                  >
+                    重新检测语音
+                  </button>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-3 justify-center">
               {isSupported && (
                 <button
                   onClick={handleRecite}
@@ -132,6 +149,7 @@ const PreviewPanel = ({
               >
                 重新生成
               </button>
+              </div>
             </div>
           </motion.div>
         ) : (
