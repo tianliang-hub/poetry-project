@@ -17,12 +17,15 @@ export interface GenerationState {
   aspectRatio: string;
   isGenerating: boolean;
   generatedUrl: string | null;
+  generatedKind: "image" | "video" | null;
   loadingText: string;
 }
 
-const GENERATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-poem-image`;
+const IMAGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-poem-image`;
+const VIDEO_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-poem-video`;
 
-const loadingTexts = ["正在研墨...", "正在构图...", "意象生成中...", "渲染画境..."];
+const imageLoadingTexts = ["正在研墨...", "正在构图...", "意象生成中...", "渲染画境..."];
+const videoLoadingTexts = ["正在分镜...", "云烟初起...", "运镜调度中...", "光影流转...", "即将成片..."];
 
 const Index = () => {
   const [state, setState] = useState<GenerationState>({
@@ -33,7 +36,8 @@ const Index = () => {
     aspectRatio: "16:9",
     isGenerating: false,
     generatedUrl: null,
-    loadingText: loadingTexts[0],
+    generatedKind: null,
+    loadingText: imageLoadingTexts[0],
   });
 
   const [showParams, setShowParams] = useState(false);
@@ -61,17 +65,25 @@ const Index = () => {
 
   const handleGenerate = async () => {
     if (!state.poem.trim()) return;
-    setState(prev => ({ ...prev, isGenerating: true, generatedUrl: null, loadingText: loadingTexts[0] }));
+    const isVideo = state.outputType === "video";
+    const texts = isVideo ? videoLoadingTexts : imageLoadingTexts;
+    setState(prev => ({
+      ...prev,
+      isGenerating: true,
+      generatedUrl: null,
+      generatedKind: null,
+      loadingText: texts[0],
+    }));
 
-    // Cycle loading texts
     let textIndex = 0;
     const interval = setInterval(() => {
-      textIndex = (textIndex + 1) % loadingTexts.length;
-      setState(prev => ({ ...prev, loadingText: loadingTexts[textIndex] }));
-    }, 2000);
+      textIndex = (textIndex + 1) % texts.length;
+      setState(prev => ({ ...prev, loadingText: texts[textIndex] }));
+    }, 2200);
 
     try {
-      const resp = await fetch(GENERATE_URL, {
+      const url = isVideo ? VIDEO_URL : IMAGE_URL;
+      const resp = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -90,11 +102,17 @@ const Index = () => {
         throw new Error(data.error || "生成失败");
       }
 
-      if (data.imageUrl) {
-        setState(prev => ({ ...prev, isGenerating: false, generatedUrl: data.imageUrl }));
-        toast.success("画境已生成");
+      const mediaUrl = isVideo ? data.videoUrl : data.imageUrl;
+      if (mediaUrl) {
+        setState(prev => ({
+          ...prev,
+          isGenerating: false,
+          generatedUrl: mediaUrl,
+          generatedKind: isVideo ? "video" : "image",
+        }));
+        toast.success(isVideo ? "运镜视频已生成" : "画境已生成");
       } else {
-        throw new Error("未能获取生成的图像");
+        throw new Error("未能获取生成结果");
       }
     } catch (err) {
       console.error("Generation error:", err);
@@ -109,7 +127,8 @@ const Index = () => {
     if (!state.generatedUrl) return;
     const link = document.createElement("a");
     link.href = state.generatedUrl;
-    link.download = `诗画_${Date.now()}.png`;
+    const ext = state.generatedKind === "video" ? "mp4" : "png";
+    link.download = `诗${state.generatedKind === "video" ? "影" : "画"}_${Date.now()}.${ext}`;
     link.click();
   };
 
@@ -143,17 +162,17 @@ const Index = () => {
             <p className="mb-3 text-xs text-muted-foreground tracking-widest uppercase">输出形式</p>
             <div className="flex gap-3">
               {([
-                { key: "image" as const, label: "静态图像", sub: "4K" },
-                { key: "video" as const, label: "运镜视频", sub: "即将推出" },
+                { key: "image" as const, label: "静态图像", sub: "4K · 数秒" },
+                { key: "video" as const, label: "运镜视频", sub: "5s · 约 1-2 分钟" },
               ]).map(item => (
                 <button
                   key={item.key}
-                  onClick={() => item.key === "image" && setState(prev => ({ ...prev, outputType: item.key }))}
+                  onClick={() => setState(prev => ({ ...prev, outputType: item.key }))}
                   className={`flex-1 rounded-lg px-4 py-3 text-left transition-all duration-300 ${
                     state.outputType === item.key
                       ? "ink-glass ring-1 ring-foreground/20 text-foreground"
                       : "text-muted-foreground hover:text-foreground/70"
-                  } ${item.key === "video" ? "opacity-40 cursor-not-allowed" : ""}`}
+                  }`}
                 >
                   <span className="block text-sm font-medium">{item.label}</span>
                   <span className="block text-xs text-muted-foreground mt-0.5">{item.sub}</span>
@@ -203,6 +222,7 @@ const Index = () => {
         <PreviewPanel
           isGenerating={state.isGenerating}
           generatedUrl={state.generatedUrl}
+          generatedKind={state.generatedKind}
           poem={state.poem}
           style={state.style}
           outputType={state.outputType}
