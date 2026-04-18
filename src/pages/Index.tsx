@@ -162,17 +162,17 @@ const Index = () => {
             <p className="mb-3 text-xs text-muted-foreground tracking-widest uppercase">输出形式</p>
             <div className="flex gap-3">
               {([
-                { key: "image" as const, label: "静态图像", sub: "4K" },
-                { key: "video" as const, label: "运镜视频", sub: "即将推出" },
+                { key: "image" as const, label: "静态图像", sub: "4K · 数秒" },
+                { key: "video" as const, label: "运镜视频", sub: "5s · 约 1-2 分钟" },
               ]).map(item => (
                 <button
                   key={item.key}
-                  onClick={() => item.key === "image" && setState(prev => ({ ...prev, outputType: item.key }))}
+                  onClick={() => setState(prev => ({ ...prev, outputType: item.key }))}
                   className={`flex-1 rounded-lg px-4 py-3 text-left transition-all duration-300 ${
                     state.outputType === item.key
                       ? "ink-glass ring-1 ring-foreground/20 text-foreground"
                       : "text-muted-foreground hover:text-foreground/70"
-                  } ${item.key === "video" ? "opacity-40 cursor-not-allowed" : ""}`}
+                  }`}
                 >
                   <span className="block text-sm font-medium">{item.label}</span>
                   <span className="block text-xs text-muted-foreground mt-0.5">{item.sub}</span>
@@ -222,6 +222,7 @@ const Index = () => {
         <PreviewPanel
           isGenerating={state.isGenerating}
           generatedUrl={state.generatedUrl}
+          generatedKind={state.generatedKind}
           poem={state.poem}
           style={state.style}
           outputType={state.outputType}
