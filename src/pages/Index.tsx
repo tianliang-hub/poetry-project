@@ -17,6 +17,7 @@ export interface GenerationState {
   aspectRatio: string;
   isGenerating: boolean;
   generatedUrl: string | null;
+  generatedScenes: string[] | null;
   generatedKind: "image" | "video" | null;
   loadingText: string;
 }
@@ -36,6 +37,7 @@ const Index = () => {
     aspectRatio: "16:9",
     isGenerating: false,
     generatedUrl: null,
+    generatedScenes: null,
     generatedKind: null,
     loadingText: imageLoadingTexts[0],
   });
@@ -71,6 +73,7 @@ const Index = () => {
       ...prev,
       isGenerating: true,
       generatedUrl: null,
+      generatedScenes: null,
       generatedKind: null,
       loadingText: texts[0],
     }));
@@ -102,15 +105,23 @@ const Index = () => {
         throw new Error(data.error || "生成失败");
       }
 
-      const mediaUrl = isVideo ? data.videoUrl : data.imageUrl;
+      const scenes: string[] | undefined = data.scenes;
+      const mediaUrl = isVideo
+        ? (scenes?.[0] ?? data.videoUrl)
+        : data.imageUrl;
       if (mediaUrl) {
         setState(prev => ({
           ...prev,
           isGenerating: false,
           generatedUrl: mediaUrl,
+          generatedScenes: isVideo ? (scenes ?? [mediaUrl]) : null,
           generatedKind: isVideo ? "video" : "image",
         }));
-        toast.success(isVideo ? "运镜视频已生成" : "画境已生成");
+        toast.success(
+          isVideo
+            ? `运镜视频已生成（${scenes?.length ?? 1} 个分镜）`
+            : "画境已生成",
+        );
       } else {
         throw new Error("未能获取生成结果");
       }
@@ -222,6 +233,7 @@ const Index = () => {
         <PreviewPanel
           isGenerating={state.isGenerating}
           generatedUrl={state.generatedUrl}
+          generatedScenes={state.generatedScenes}
           generatedKind={state.generatedKind}
           poem={state.poem}
           style={state.style}
