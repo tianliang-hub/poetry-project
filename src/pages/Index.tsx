@@ -17,6 +17,7 @@ export interface GenerationState {
   aspectRatio: string;
   isGenerating: boolean;
   generatedUrl: string | null;
+  generatedScenes: string[] | null;
   generatedKind: "image" | "video" | null;
   loadingText: string;
 }
