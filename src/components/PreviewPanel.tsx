@@ -1,10 +1,12 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { usePoemTTS } from "@/hooks/usePoemTTS";
+import SceneVideoPlayer from "@/components/SceneVideoPlayer";
 import type { GenerationStyle, OutputType } from "@/pages/Index";
 
 interface PreviewPanelProps {
   isGenerating: boolean;
   generatedUrl: string | null;
+  generatedScenes: string[] | null;
   generatedKind: "image" | "video" | null;
   poem: string;
   style: GenerationStyle;
@@ -23,6 +25,7 @@ const styleLabels: Record<GenerationStyle, string> = {
 const PreviewPanel = ({
   isGenerating,
   generatedUrl,
+  generatedScenes,
   generatedKind,
   poem,
   style,
@@ -80,12 +83,12 @@ const PreviewPanel = ({
             className="flex flex-col items-center gap-6 px-8 w-full max-w-3xl"
           >
             {/* Generated media */}
-            <div className={`relative w-full overflow-hidden rounded-xl ink-glass ${generatedKind === "video" ? "aspect-video bg-black/20" : ""}`}>
+            <div className="relative w-full overflow-hidden rounded-xl ink-glass">
               {generatedKind === "video" ? (
-                <img
-                  src={generatedUrl}
-                  alt={`AI generated scene for: ${poem}`}
-                  className="absolute inset-0 w-full h-full object-cover ken-burns"
+                <SceneVideoPlayer
+                  scenes={generatedScenes && generatedScenes.length > 0 ? generatedScenes : [generatedUrl]}
+                  poem={poem}
+                  sceneDuration={4}
                 />
               ) : (
                 <img
