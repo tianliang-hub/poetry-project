@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -5,6 +6,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+const IMAGEN_MODEL = "imagen-3.0-generate-002";
+const IMAGEN_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGEN_MODEL}:predict`;
+const FALLBACK_GEMINI_API_KEY = "AIzaSyASuz3D-Ku4ApZQXZWoAlzcs7uNfZkMv5Y";
 
 const stylePrompts: Record<string, string> = {
   "ink-wash":
@@ -15,107 +20,114 @@ const stylePrompts: Record<string, string> = {
     "Cinematic photorealistic style inspired by ancient Chinese poetry. Dramatic lighting with volumetric fog. Wide-angle composition with depth of field. Golden hour or moonlit atmosphere. Epic landscape cinematography.",
 };
 
+const SUPPORTED_ASPECT_RATIOS = new Set(["1:1", "3:4", "4:3", "9:16", "16:9"]);
+
+const normalizeAspectRatio = (ratio?: string): string =>
+  SUPPORTED_ASPECT_RATIOS.has(ratio ?? "") ? (ratio as string) : "16:9";
+
+const isQuotaError = (status: number, text: string) => {
+  if (status === 402 || status === 403 || status === 429) return true;
+  const message = text.toLowerCase();
+  return (
+    message.includes("quota") ||
+    message.includes("billing") ||
+    message.includes("insufficient") ||
+    message.includes("resource exhausted")
+  );
+};
+
+const extractBase64Image = (data: any): string | null => {
+  const first = data?.predictions?.[0];
+  const bytes =
+    first?.bytesBase64Encoded ??
+    first?.image?.bytesBase64Encoded ??
+    first?.b64_json ??
+    null;
+  return typeof bytes === "string" && bytes.trim().length > 0 ? bytes : null;
+};
+
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const { poem, style, aspectRatio } = await req.json();
+    const apiKey = Deno.env.get("GEMINI_API_KEY") || FALLBACK_GEMINI_API_KEY;
+    if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
-    if (!poem || !poem.trim()) {
-      return new Response(
-        JSON.stringify({ error: "请输入诗词内容" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    const poemText = typeof poem === "string" ? poem.trim() : "";
+    if (!poemText) {
+      return new Response(JSON.stringify({ error: "请输入诗词内容" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const styleGuide = stylePrompts[style] || stylePrompts["ink-wash"];
+    const finalAspectRatio = normalizeAspectRatio(aspectRatio);
+    const prompt = `Generate a high-quality Chinese-poetry artwork.
 
-    const prompt = `Generate a beautiful artwork based on this Chinese poem:
+Poem:
+"${poemText}"
 
-"${poem}"
+Style direction:
+${styleGuide}
 
-Art style: ${styleGuide}
+Requirements:
+- Aspect ratio ${finalAspectRatio}
+- No text, no watermark, no UI elements
+- Focus on mood, imagery, and emotional tone of the poem`;
 
-Aspect ratio: ${aspectRatio || "16:9"}
-
-Important: Create a high-quality artistic interpretation that captures the mood, imagery, and emotion of the poem. The image should be visually stunning and evocative. Do not include any text or characters in the image.`;
-
-    console.log("Generating image for poem:", poem, "style:", style);
-
-    const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
+    const response = await fetch(`${IMAGEN_ENDPOINT}?key=${encodeURIComponent(apiKey)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instances: [{ prompt }],
+        parameters: {
+          sampleCount: 1,
+          aspectRatio: finalAspectRatio,
         },
-        body: JSON.stringify({
-          model: "google/gemini-3.1-flash-image-preview",
-          messages: [
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-          modalities: ["image", "text"],
-        }),
-      }
-    );
+      }),
+    });
 
     if (!response.ok) {
-      if (response.status === 429) {
+      const errText = await response.text();
+      console.error("Imagen API error:", response.status, errText);
+
+      if (isQuotaError(response.status, errText)) {
         return new Response(
-          JSON.stringify({ error: "生成请求过于频繁，请稍后再试。" }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "Gemini/Imagen 额度不足或达到配额上限，请检查计费与限额。" }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI 额度不足，请充值后再试。" }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      return new Response(
-        JSON.stringify({ error: "图像生成失败，请重试。" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+
+      return new Response(JSON.stringify({ error: "图像生成失败，请稍后重试。" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const data = await response.json();
-    console.log("AI response received");
-
-    const imageUrl =
-      data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    const textContent = data.choices?.[0]?.message?.content || "";
-
-    if (!imageUrl) {
-      console.error("No image in response:", JSON.stringify(data).slice(0, 500));
-      return new Response(
-        JSON.stringify({ error: "未能生成图像，请尝试更换诗词或风格。" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    const imageBase64 = extractBase64Image(data);
+    if (!imageBase64) {
+      console.error("Imagen response missing image:", JSON.stringify(data).slice(0, 800));
+      return new Response(JSON.stringify({ error: "未能生成图像，请重试。" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     return new Response(
-      JSON.stringify({ imageUrl, description: textContent }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({
+        imageUrl: `data:image/png;base64,${imageBase64}`,
+        description: "",
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
     console.error("generate-poem-image error:", e);
-    const msg = e instanceof Error ? e.message : "Unknown error";
     return new Response(
-      JSON.stringify({ error: msg }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: e instanceof Error ? e.message : "未知错误" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });

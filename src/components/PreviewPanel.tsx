@@ -130,7 +130,7 @@ const PreviewPanel = ({
               {isSupported && (
                 <button
                   onClick={handleRecite}
-                  disabled={!poem.trim()}
+                  disabled={poem.trim().length === 0}
                   className={`rounded-lg px-6 py-2.5 text-xs font-medium transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-30 disabled:hover:scale-100 ${
                     isSpeaking
                       ? "bg-primary text-primary-foreground ring-2 ring-primary/40"

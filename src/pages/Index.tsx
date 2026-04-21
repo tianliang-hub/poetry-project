@@ -19,6 +19,7 @@ export interface GenerationState {
   generatedUrl: string | null;
   generatedScenes: string[] | null;
   generatedKind: "image" | "video" | null;
+  generatedPoem: string | null;
   loadingText: string;
 }
 
@@ -39,6 +40,7 @@ const Index = () => {
     generatedUrl: null,
     generatedScenes: null,
     generatedKind: null,
+    generatedPoem: null,
     loadingText: imageLoadingTexts[0],
   });
 
@@ -66,7 +68,8 @@ const Index = () => {
   };
 
   const handleGenerate = async () => {
-    if (!state.poem.trim()) return;
+    const poemForGeneration = state.poem.trim();
+    if (!poemForGeneration) return;
     const isVideo = state.outputType === "video";
     const texts = isVideo ? videoLoadingTexts : imageLoadingTexts;
     setState(prev => ({
@@ -75,6 +78,7 @@ const Index = () => {
       generatedUrl: null,
       generatedScenes: null,
       generatedKind: null,
+      generatedPoem: poemForGeneration,
       loadingText: texts[0],
     }));
 
@@ -93,7 +97,7 @@ const Index = () => {
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
-          poem: state.poem,
+          poem: poemForGeneration,
           style: state.style,
           aspectRatio: state.aspectRatio,
         }),
@@ -116,6 +120,7 @@ const Index = () => {
           generatedUrl: mediaUrl,
           generatedScenes: isVideo ? (scenes ?? [mediaUrl]) : null,
           generatedKind: isVideo ? "video" : "image",
+          generatedPoem: poemForGeneration,
         }));
         toast.success(
           isVideo
@@ -235,7 +240,7 @@ const Index = () => {
           generatedUrl={state.generatedUrl}
           generatedScenes={state.generatedScenes}
           generatedKind={state.generatedKind}
-          poem={state.poem}
+          poem={state.generatedPoem ?? state.poem}
           style={state.style}
           outputType={state.outputType}
           loadingText={state.loadingText}
